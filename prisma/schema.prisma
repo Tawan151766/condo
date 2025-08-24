@@ -36,10 +36,14 @@ model User {
   communityPosts      CommunityPost[]
   postComments        PostComment[]
   facilityBookings    FacilityBooking[]
+  bookings            Booking[]
   payments            Payment[]
   notifications       Notification[]
   systemSettingsUpdates SystemSetting[]
   activityLogs        ActivityLog[]
+  postLikes           PostLike[]
+  commentLikes        CommentLike[]
+  facilities          Facility[]
 
   @@map("users")
   @@index([email])
@@ -315,6 +319,7 @@ model CommunityPost {
   // Relations
   user     User          @relation(fields: [userId], references: [id])
   comments PostComment[]
+  likes    PostLike[]
 
   @@map("community_posts")
 }
@@ -335,33 +340,65 @@ model PostComment {
   user          User          @relation(fields: [userId], references: [id])
   parentComment PostComment?  @relation("CommentReplies", fields: [parentCommentId], references: [id])
   replies       PostComment[] @relation("CommentReplies")
+  likes         CommentLike[]
 
   @@map("post_comments")
 }
 
 // Facility & Booking Tables
 model Facility {
-  id                  Int      @id @default(autoincrement())
-  name                String   @db.VarChar(100)
-  description         String?
-  location            String?  @db.VarChar(200)
-  capacity            Int?
-  hourlyRate          Decimal  @default(0) @map("hourly_rate") @db.Decimal(8,2)
-  bookingAdvanceDays  Int      @default(7) @map("booking_advance_days")
-  minBookingHours     Int      @default(1) @map("min_booking_hours")
-  maxBookingHours     Int      @default(8) @map("max_booking_hours")
-  operatingHoursStart DateTime @default(dbgenerated("'06:00:00'::time")) @map("operating_hours_start") @db.Time
-  operatingHoursEnd   DateTime @default(dbgenerated("'22:00:00'::time")) @map("operating_hours_end") @db.Time
-  rules               String?
-  image               String?  @db.VarChar(255)
-  status              FacilityStatus @default(active)
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  id                    Int      @id @default(autoincrement())
+  name                  String   @db.VarChar(100)
+  type                  String   @db.VarChar(50) // meeting_room, gym, pool, etc.
+  description           String?
+  location              String?  @db.VarChar(200)
+  capacity              Int?
+  hourlyRate            Decimal  @default(0) @map("hourly_rate") @db.Decimal(8,2)
+  operatingHoursStart   String   @default("08:00:00") @map("operating_hours_start")
+  operatingHoursEnd     String   @default("22:00:00") @map("operating_hours_end")
+  advanceBookingDays    Int      @default(30) @map("advance_booking_days")
+  minBookingHours       Int      @default(1) @map("min_booking_hours")
+  maxBookingHours       Int      @default(8) @map("max_booking_hours")
+  amenities             Json     @default("[]")
+  rules                 Json     @default("[]")
+  images                Json     @default("[]")
+  isActive              Boolean  @default(true) @map("is_active")
+  createdBy             Int      @map("created_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
   // Relations
-  bookings FacilityBooking[]
+  creator  User      @relation(fields: [createdBy], references: [id])
+  bookings Booking[]
 
   @@map("facilities")
+}
+
+model Booking {
+  id                   Int      @id @default(autoincrement())
+  bookingNumber        String   @unique @map("booking_number") @db.VarChar(50)
+  userId               Int      @map("user_id")
+  facilityId           Int      @map("facility_id")
+  bookingDate          DateTime @map("booking_date") @db.Date
+  startTime            String   @map("start_time")
+  endTime              String   @map("end_time")
+  purpose              String?  @db.Text
+  expectedAttendees    Int      @default(1) @map("expected_attendees")
+  specialRequirements  String?  @map("special_requirements") @db.Text
+  contactPhone         String?  @map("contact_phone")
+  totalAmount          Decimal  @map("total_amount") @db.Decimal(10,2)
+  status               String   @default("pending") // pending, confirmed, cancelled, completed
+  cancellationReason   String?  @map("cancellation_reason")
+  cancelledAt          DateTime? @map("cancelled_at")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id])
+  facility Facility  @relation(fields: [facilityId], references: [id])
+  payments Payment[]
+
+  @@map("bookings")
 }
 
 model FacilityBooking {
@@ -383,8 +420,7 @@ model FacilityBooking {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user     User     @relation(fields: [userId], references: [id])
-  facility Facility @relation(fields: [facilityId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@map("facility_bookings")
 }
@@ -424,6 +460,7 @@ model Payment {
   userId           Int      @map("user_id")
   paymentType      PaymentType @map("payment_type")
   referenceId      Int      @map("reference_id")
+  bookingId        Int?     @map("booking_id")
   amount           Decimal  @db.Decimal(10,2)
   paymentMethod    PaymentMethodType @map("payment_method")
   paymentReference String?  @map("payment_reference") @db.VarChar(100)
@@ -434,9 +471,37 @@ model Payment {
   createdAt        DateTime @default(now()) @map("created_at")
 
   // Relations
-  user User @relation(fields: [userId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  booking Booking? @relation(fields: [bookingId], references: [id])
 
   @@map("payments")
+}
+
+// Additional Models for New APIs
+model PostLike {
+  id      Int @id @default(autoincrement())
+  userId  Int @map("user_id")
+  postId  Int @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@map("post_likes")
+}
+
+model CommentLike {
+  id         Int @id @default(autoincrement())
+  userId     Int @map("user_id")
+  commentId  Int @map("comment_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment PostComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@map("comment_likes")
 }
 
 // Notification & System Tables

@@ -100,30 +100,106 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* API Endpoints */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">API Endpoints</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
+              <h3 className="font-medium text-blue-900 mb-2">🔐 Authentication</h3>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>POST /api/auth/login</li>
+                <li>POST /api/auth/register</li>
+                <li>POST /api/auth/refresh-token</li>
+                <li>POST /api/auth/forgot-password</li>
+              </ul>
+            </div>
+            
+            <div className="p-4 border border-green-200 rounded-lg bg-green-50">
+              <h3 className="font-medium text-green-900 mb-2">👥 User Management</h3>
+              <ul className="text-sm text-green-700 space-y-1">
+                <li>GET /api/users/profile</li>
+                <li>GET /api/users</li>
+                <li>POST /api/users</li>
+                <li>PUT /api/users/[id]</li>
+              </ul>
+            </div>
+
+            <div className="p-4 border border-purple-200 rounded-lg bg-purple-50">
+              <h3 className="font-medium text-purple-900 mb-2">🏢 Buildings</h3>
+              <ul className="text-sm text-purple-700 space-y-1">
+                <li>GET /api/buildings</li>
+                <li>POST /api/buildings</li>
+                <li>GET /api/buildings/[id]</li>
+                <li>GET /api/buildings/[id]/units</li>
+              </ul>
+            </div>
+
+            <div className="p-4 border border-yellow-200 rounded-lg bg-yellow-50">
+              <h3 className="font-medium text-yellow-900 mb-2">🛒 E-commerce</h3>
+              <ul className="text-sm text-yellow-700 space-y-1">
+                <li>GET /api/products</li>
+                <li>GET /api/products/categories</li>
+                <li>GET /api/cart</li>
+                <li>POST /api/orders</li>
+              </ul>
+            </div>
+
+            <div className="p-4 border border-red-200 rounded-lg bg-red-50">
+              <h3 className="font-medium text-red-900 mb-2">🔧 Services</h3>
+              <ul className="text-sm text-red-700 space-y-1">
+                <li>GET /api/services/categories</li>
+                <li>GET /api/service-requests</li>
+                <li>POST /api/service-requests</li>
+              </ul>
+            </div>
+
+            <div className="p-4 border border-indigo-200 rounded-lg bg-indigo-50">
+              <h3 className="font-medium text-indigo-900 mb-2">📢 Communication</h3>
+              <ul className="text-sm text-indigo-700 space-y-1">
+                <li>GET /api/announcements</li>
+                <li>GET /api/notifications</li>
+                <li>GET /api/search</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="mt-6 text-center">
+            <a 
+              href="/api/docs" 
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              View Complete API Documentation
+            </a>
+          </div>
+        </div>
+
+        {/* Quick Test Links */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Test Links</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <a 
-              href="/api/users" 
+              href="/api/system/health" 
               className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <h3 className="font-medium text-gray-900">Users API</h3>
-              <p className="text-sm text-gray-600">จัดการข้อมูลผู้ใช้</p>
+              <h3 className="font-medium text-gray-900">Health Check</h3>
+              <p className="text-sm text-gray-600">ตรวจสอบสถานะระบบ</p>
             </a>
             <a 
-              href="/api/buildings" 
+              href="/api/system/info" 
               className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <h3 className="font-medium text-gray-900">Buildings API</h3>
-              <p className="text-sm text-gray-600">จัดการข้อมูลอาคาร</p>
+              <h3 className="font-medium text-gray-900">System Info</h3>
+              <p className="text-sm text-gray-600">ข้อมูลระบบ</p>
             </a>
             <a 
-              href="/api/products" 
+              href="/api/settings/public" 
               className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              <h3 className="font-medium text-gray-900">Products API</h3>
-              <p className="text-sm text-gray-600">จัดการข้อมูลสินค้า</p>
+              <h3 className="font-medium text-gray-900">Public Settings</h3>
+              <p className="text-sm text-gray-600">การตั้งค่าสาธารณะ</p>
             </a>
           </div>
         </div>
