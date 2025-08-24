@@ -1,0 +1,680 @@
+// Community Management System - Prisma Schema (Updated with Int)
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Core Tables
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique @db.VarChar(50)
+  email        String   @unique @db.VarChar(100)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  firstName    String   @map("first_name") @db.VarChar(100)
+  lastName     String   @map("last_name") @db.VarChar(100)
+  phone        String?  @db.VarChar(20)
+  profileImage String?  @map("profile_image") @db.VarChar(255)
+  status       UserStatus @default(active)
+  role         UserRole   @default(resident)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  residents           Resident[]
+  orders              Order[]
+  serviceRequests     ServiceRequest[] @relation("UserServiceRequests")
+  assignedRequests    ServiceRequest[] @relation("AssignedServiceRequests")
+  attachmentUploads   ServiceRequestAttachment[]
+  announcements       Announcement[]
+  announcementReads   AnnouncementRead[]
+  communityPosts      CommunityPost[]
+  postComments        PostComment[]
+  facilityBookings    FacilityBooking[]
+  payments            Payment[]
+  notifications       Notification[]
+  systemSettingsUpdates SystemSetting[]
+  activityLogs        ActivityLog[]
+
+  @@map("users")
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model Building {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(100)
+  code        String   @unique @db.VarChar(20)
+  address     String?
+  totalFloors Int      @default(0) @map("total_floors")
+  totalUnits  Int      @default(0) @map("total_units")
+  status      BuildingStatus @default(active)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  units         Unit[]
+  announcements Announcement[]
+
+  @@map("buildings")
+}
+
+model Unit {
+  id          Int      @id @default(autoincrement())
+  buildingId  Int      @map("building_id")
+  unitNumber  String   @map("unit_number") @db.VarChar(20)
+  floor       Int
+  unitType    UnitType @map("unit_type")
+  areaSqm     Decimal? @map("area_sqm") @db.Decimal(8,2)
+  status      UnitStatus @default(vacant)
+  monthlyFee  Decimal  @default(0) @map("monthly_fee") @db.Decimal(10,2)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  building    Building @relation(fields: [buildingId], references: [id])
+  residents   Resident[]
+  monthlyFees MonthlyFee[]
+
+  @@map("units")
+  @@unique([buildingId, unitNumber], name: "unique_unit")
+}
+
+model Resident {
+  id                    Int      @id @default(autoincrement())
+  userId                Int      @map("user_id")
+  unitId                Int      @map("unit_id")
+  relationship          ResidentRelationship
+  moveInDate            DateTime? @map("move_in_date") @db.Date
+  moveOutDate           DateTime? @map("move_out_date") @db.Date
+  isPrimary             Boolean  @default(false) @map("is_primary")
+  emergencyContactName  String?  @map("emergency_contact_name") @db.VarChar(100)
+  emergencyContactPhone String?  @map("emergency_contact_phone") @db.VarChar(20)
+  status                ResidentStatus @default(active)
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  unit Unit @relation(fields: [unitId], references: [id])
+
+  @@map("residents")
+  @@index([userId, unitId])
+  @@index([unitId, status])
+}
+
+// Marketplace Tables
+model ProductCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  nameTh    String   @map("name_th") @db.VarChar(100)
+  icon      String?  @db.VarChar(255)
+  sortOrder Int      @default(0) @map("sort_order")
+  status    CategoryStatus @default(active)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  products Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id            Int      @id @default(autoincrement())
+  categoryId    Int      @map("category_id")
+  name          String   @db.VarChar(200)
+  description   String?
+  image         String?  @db.VarChar(255)
+  price         Decimal  @db.Decimal(10,2)
+  discountPrice Decimal? @map("discount_price") @db.Decimal(10,2)
+  stockQuantity Int      @default(0) @map("stock_quantity")
+  unit          String   @default("ชิ้น") @db.VarChar(20)
+  status        ProductStatus @default(active)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  category   ProductCategory @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+
+  @@map("products")
+}
+
+model Order {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  orderNumber     String   @unique @map("order_number") @db.VarChar(50)
+  totalAmount     Decimal  @map("total_amount") @db.Decimal(10,2)
+  deliveryFee     Decimal  @default(0) @map("delivery_fee") @db.Decimal(10,2)
+  discountAmount  Decimal  @default(0) @map("discount_amount") @db.Decimal(10,2)
+  finalAmount     Decimal  @map("final_amount") @db.Decimal(10,2)
+  deliveryAddress String?  @map("delivery_address")
+  deliveryDate    DateTime? @map("delivery_date") @db.Date
+  deliveryTime    DateTime? @map("delivery_time") @db.Time
+  paymentMethod   PaymentMethod @default(cash) @map("payment_method")
+  paymentStatus   PaymentStatus @default(pending) @map("payment_status")
+  orderStatus     OrderStatus @default(pending) @map("order_status")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+
+  @@map("orders")
+  @@index([userId, orderStatus])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  orderId    Int      @map("order_id")
+  productId  Int      @map("product_id")
+  quantity   Int
+  unitPrice  Decimal  @map("unit_price") @db.Decimal(10,2)
+  totalPrice Decimal  @map("total_price") @db.Decimal(10,2)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// Service Request Tables
+model ServiceCategory {
+  id              Int      @id @default(autoincrement())
+  name            String   @db.VarChar(100)
+  nameTh          String   @map("name_th") @db.VarChar(100)
+  icon            String?  @db.VarChar(255)
+  description     String?
+  isRepairService Boolean  @default(false) @map("is_repair_service")
+  status          CategoryStatus @default(active)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  serviceRequests ServiceRequest[]
+
+  @@map("service_categories")
+}
+
+model ServiceRequest {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  categoryId     Int      @map("category_id")
+  requestNumber  String   @unique @map("request_number") @db.VarChar(50)
+  title          String   @db.VarChar(200)
+  description    String
+  priority       Priority @default(medium)
+  location       String?  @db.VarChar(200)
+  preferredDate  DateTime? @map("preferred_date") @db.Date
+  preferredTime  DateTime? @map("preferred_time") @db.Time
+  contactPhone   String?  @map("contact_phone") @db.VarChar(20)
+  status         ServiceRequestStatus @default(pending)
+  assignedTo     Int?     @map("assigned_to")
+  estimatedCost  Decimal? @map("estimated_cost") @db.Decimal(10,2)
+  actualCost     Decimal? @map("actual_cost") @db.Decimal(10,2)
+  completionDate DateTime? @map("completion_date")
+  rating         Int?     @db.SmallInt
+  feedback       String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user        User                        @relation("UserServiceRequests", fields: [userId], references: [id])
+  category    ServiceCategory             @relation(fields: [categoryId], references: [id])
+  assignedUser User?                      @relation("AssignedServiceRequests", fields: [assignedTo], references: [id])
+  attachments ServiceRequestAttachment[]
+
+  @@map("service_requests")
+  @@index([userId])
+  @@index([status])
+  @@index([assignedTo])
+}
+
+model ServiceRequestAttachment {
+  id               Int      @id @default(autoincrement())
+  serviceRequestId Int      @map("service_request_id")
+  fileName         String   @map("file_name") @db.VarChar(255)
+  filePath         String   @map("file_path") @db.VarChar(500)
+  fileSize         Int?     @map("file_size")
+  fileType         String?  @map("file_type") @db.VarChar(100)
+  uploadedBy       Int      @map("uploaded_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  serviceRequest ServiceRequest @relation(fields: [serviceRequestId], references: [id])
+  uploader       User           @relation(fields: [uploadedBy], references: [id])
+
+  @@map("service_request_attachments")
+}
+
+// Communication Tables
+model Announcement {
+  id               Int      @id @default(autoincrement())
+  title            String   @db.VarChar(200)
+  content          String
+  announcementType AnnouncementType @default(general) @map("announcement_type")
+  priority         Priority @default(medium)
+  targetAudience   TargetAudience @default(all) @map("target_audience")
+  buildingId       Int?     @map("building_id")
+  startDate        DateTime @map("start_date") @db.Date
+  endDate          DateTime? @map("end_date") @db.Date
+  isPinned         Boolean  @default(false) @map("is_pinned")
+  attachmentUrl    String?  @map("attachment_url") @db.VarChar(500)
+  createdBy        Int      @map("created_by")
+  status           AnnouncementStatus @default(draft)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  building Building?          @relation(fields: [buildingId], references: [id])
+  creator  User               @relation(fields: [createdBy], references: [id])
+  reads    AnnouncementRead[]
+
+  @@map("announcements")
+  @@index([announcementType, status])
+  @@index([startDate, endDate])
+}
+
+model AnnouncementRead {
+  id             Int      @id @default(autoincrement())
+  announcementId Int      @map("announcement_id")
+  userId         Int      @map("user_id")
+  readAt         DateTime @default(now()) @map("read_at")
+
+  // Relations
+  announcement Announcement @relation(fields: [announcementId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@map("announcement_reads")
+  @@unique([announcementId, userId], name: "unique_read")
+}
+
+model CommunityPost {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  title         String?  @db.VarChar(200)
+  content       String
+  postType      PostType @default(general) @map("post_type")
+  isAnonymous   Boolean  @default(false) @map("is_anonymous")
+  likesCount    Int      @default(0) @map("likes_count")
+  commentsCount Int      @default(0) @map("comments_count")
+  status        PostStatus @default(active)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user     User          @relation(fields: [userId], references: [id])
+  comments PostComment[]
+
+  @@map("community_posts")
+}
+
+model PostComment {
+  id              Int      @id @default(autoincrement())
+  postId          Int      @map("post_id")
+  userId          Int      @map("user_id")
+  parentCommentId Int?     @map("parent_comment_id")
+  content         String
+  likesCount      Int      @default(0) @map("likes_count")
+  status          PostStatus @default(active)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  post          CommunityPost @relation(fields: [postId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
+  parentComment PostComment?  @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies       PostComment[] @relation("CommentReplies")
+
+  @@map("post_comments")
+}
+
+// Facility & Booking Tables
+model Facility {
+  id                  Int      @id @default(autoincrement())
+  name                String   @db.VarChar(100)
+  description         String?
+  location            String?  @db.VarChar(200)
+  capacity            Int?
+  hourlyRate          Decimal  @default(0) @map("hourly_rate") @db.Decimal(8,2)
+  bookingAdvanceDays  Int      @default(7) @map("booking_advance_days")
+  minBookingHours     Int      @default(1) @map("min_booking_hours")
+  maxBookingHours     Int      @default(8) @map("max_booking_hours")
+  operatingHoursStart DateTime @default(dbgenerated("'06:00:00'::time")) @map("operating_hours_start") @db.Time
+  operatingHoursEnd   DateTime @default(dbgenerated("'22:00:00'::time")) @map("operating_hours_end") @db.Time
+  rules               String?
+  image               String?  @db.VarChar(255)
+  status              FacilityStatus @default(active)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  bookings FacilityBooking[]
+
+  @@map("facilities")
+}
+
+model FacilityBooking {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  facilityId      Int      @map("facility_id")
+  bookingDate     DateTime @map("booking_date") @db.Date
+  startTime       DateTime @map("start_time") @db.Time
+  endTime         DateTime @map("end_time") @db.Time
+  totalHours      Int      @map("total_hours")
+  totalCost       Decimal  @default(0) @map("total_cost") @db.Decimal(10,2)
+  purpose         String?  @db.VarChar(200)
+  attendeesCount  Int      @default(1) @map("attendees_count")
+  specialRequests String?  @map("special_requests")
+  paymentStatus   PaymentStatus @default(pending) @map("payment_status")
+  bookingStatus   BookingStatus @default(pending) @map("booking_status")
+  cancelledReason String?  @map("cancelled_reason")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user     User     @relation(fields: [userId], references: [id])
+  facility Facility @relation(fields: [facilityId], references: [id])
+
+  @@map("facility_bookings")
+}
+
+// Financial Tables
+model MonthlyFee {
+  id                Int      @id @default(autoincrement())
+  unitId            Int      @map("unit_id")
+  feeMonth          DateTime @map("fee_month") @db.Date
+  baseAmount        Decimal  @map("base_amount") @db.Decimal(10,2)
+  waterAmount       Decimal  @default(0) @map("water_amount") @db.Decimal(10,2)
+  electricityAmount Decimal  @default(0) @map("electricity_amount") @db.Decimal(10,2)
+  parkingAmount     Decimal  @default(0) @map("parking_amount") @db.Decimal(10,2)
+  otherCharges      Decimal  @default(0) @map("other_charges") @db.Decimal(10,2)
+  lateFee           Decimal  @default(0) @map("late_fee") @db.Decimal(10,2)
+  discount          Decimal  @default(0) @db.Decimal(10,2)
+  totalAmount       Decimal  @map("total_amount") @db.Decimal(10,2)
+  dueDate           DateTime @map("due_date") @db.Date
+  paymentDate       DateTime? @map("payment_date") @db.Date
+  paymentMethod     String?  @map("payment_method") @db.VarChar(50)
+  paymentReference  String?  @map("payment_reference") @db.VarChar(100)
+  status            FeeStatus @default(unpaid)
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  unit Unit @relation(fields: [unitId], references: [id])
+
+  @@map("monthly_fees")
+  @@index([unitId, feeMonth])
+  @@index([status])
+}
+
+model Payment {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @map("user_id")
+  paymentType      PaymentType @map("payment_type")
+  referenceId      Int      @map("reference_id")
+  amount           Decimal  @db.Decimal(10,2)
+  paymentMethod    PaymentMethodType @map("payment_method")
+  paymentReference String?  @map("payment_reference") @db.VarChar(100)
+  paymentDate      DateTime @map("payment_date")
+  receiptNumber    String?  @map("receipt_number") @db.VarChar(50)
+  status           PaymentConfirmationStatus @default(pending)
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+// Notification & System Tables
+model Notification {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  title           String   @db.VarChar(200)
+  message         String
+  notificationType NotificationType @map("notification_type")
+  referenceType   String?  @map("reference_type") @db.VarChar(50)
+  referenceId     Int?     @map("reference_id")
+  isRead          Boolean  @default(false) @map("is_read")
+  readAt          DateTime? @map("read_at")
+  priority        Priority @default(medium)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id           Int      @id @default(autoincrement())
+  settingKey   String   @unique @map("setting_key") @db.VarChar(100)
+  settingValue String?  @map("setting_value")
+  settingType  SettingType @default(string) @map("setting_type")
+  description  String?
+  isPublic     Boolean  @default(false) @map("is_public")
+  updatedBy    Int?     @map("updated_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  updater User? @relation(fields: [updatedBy], references: [id])
+
+  @@map("system_settings")
+}
+
+model ActivityLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  action     String   @db.VarChar(100)
+  tableName  String?  @map("table_name") @db.VarChar(50)
+  recordId   Int?     @map("record_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
+
+// Enums
+enum UserStatus {
+  active
+  inactive
+  banned
+}
+
+enum UserRole {
+  resident
+  admin
+  staff
+  security
+}
+
+enum BuildingStatus {
+  active
+  inactive
+}
+
+enum UnitType {
+  studio
+  one_br @map("1br")
+  two_br @map("2br")
+  three_br @map("3br")
+  penthouse
+}
+
+enum UnitStatus {
+  occupied
+  vacant
+  maintenance
+}
+
+enum ResidentRelationship {
+  owner
+  tenant
+  family_member
+}
+
+enum ResidentStatus {
+  active
+  inactive
+}
+
+enum CategoryStatus {
+  active
+  inactive
+}
+
+enum ProductStatus {
+  active
+  inactive
+  out_of_stock
+}
+
+enum PaymentMethod {
+  cash
+  transfer
+  qr_code
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  refunded
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  preparing
+  delivering
+  delivered
+  cancelled
+}
+
+enum Priority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum ServiceRequestStatus {
+  pending
+  assigned
+  in_progress
+  completed
+  cancelled
+}
+
+enum AnnouncementType {
+  general
+  maintenance
+  emergency
+  event
+  policy
+}
+
+enum TargetAudience {
+  all
+  residents
+  owners
+  tenants
+  specific_building
+}
+
+enum AnnouncementStatus {
+  draft
+  published
+  archived
+}
+
+enum PostType {
+  general
+  question
+  complaint
+  suggestion
+  lost_found
+}
+
+enum PostStatus {
+  active
+  hidden
+  deleted
+}
+
+enum FacilityStatus {
+  active
+  maintenance
+  inactive
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+  completed
+}
+
+enum FeeStatus {
+  unpaid
+  paid
+  overdue
+  partial
+}
+
+enum PaymentType {
+  monthly_fee
+  facility_booking
+  service_fee
+  product_order
+}
+
+enum PaymentMethodType {
+  cash
+  bank_transfer
+  qr_code
+  credit_card
+}
+
+enum PaymentConfirmationStatus {
+  pending
+  confirmed
+  failed
+  refunded
+}
+
+enum NotificationType {
+  announcement
+  payment
+  booking
+  service
+  system
+}
+
+enum SettingType {
+  string
+  number
+  boolean
+  json
+}
